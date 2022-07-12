@@ -1,179 +1,108 @@
-#include "main.h"
+#ifndef MAIN_H
+#define MAIN_H
+
+#include <limits.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+/* Flag Modifier Macros */
+#define PLUS 1
+#define SPACE 2
+#define HASH 4
+#define ZERO 8
+#define NEG 16
+#define PLUS_FLAG (flags & 1)
+#define SPACE_FLAG ((flags >> 1) & 1)
+#define HASH_FLAG ((flags >> 2) & 1)
+#define ZERO_FLAG ((flags >> 3) & 1)
+#define NEG_FLAG ((flags >> 4) & 1)
+
+/* Length Modifier Macros */
+#define SHORT 1
+#define LONG 2
 
 /**
- * handle_flags - Matches a flag with its corresponding value.
- * @flag: A pointer to the potential flag.
- *
- * Return: If a flag character is matched - its corresponding value.
- *         Otherwise - 0.
+ * struct buffer_s - A new type defining a buffer struct.
+ * @buffer: A pointer to a character array.
+ * @start: A pointer to the start of buffer.
+ * @len: The length of the string stored in buffer.
  */
-unsigned char handle_flags(const char *flag)
+typedef struct buffer_s
 {
-	int i, j;
-	unsigned char ret = 0;
-	flag_t flags[] = {
-		{'+', PLUS},
-		{' ', SPACE},
-		{'#', HASH},
-		{'0', ZERO},
-		{'-', NEG},
-		{0, 0}
-	};
-
-	for (i = 0; flag[i]; i++)
-	{
-		for (j = 0; flags[j].flag != 0; j++)
-		{
-			if (flag[i] == flags[j].flag)
-			{
-				if (ret == 0)
-					ret = flags[j].value;
-				else
-					ret |= flags[j].value;
-				break;
-			}
-		}
-		if (flags[j].value == 0)
-			break;
-	}
-
-	return (ret);
-}
+	char *buffer;
+	char *start;
+	unsigned int len;
+} buffer_t;
 
 /**
- * handle_length - Matches length modifiers with their corresponding value.
- * @modifier: A pointer to a potential length modifier.
- *
- * Return: If a lenth modifier is matched - its corresponding value.
- *         Otherwise - 0.
+ * struct converter_s - A new type defining a converter struct.
+ * @specifier: A character representing a conversion specifier.
+ * @func: A pointer to a conversion function corresponding to specifier.
  */
-unsigned char handle_length(const char *modifier)
+typedef struct converter_s
 {
-	if (*modifier == 'h')
-		return (SHORT);
-	else if (*modifier == 'l')
-		return (LONG);
-	return (0);
-}
+	unsigned char specifier;
+	unsigned int (*func)(va_list, buffer_t *,\
+			unsigned char, char, char, unsigned char);
+} converter_t;
 
 /**
- * handle_width - Matches a width modifier with its corresponding value.
- * @args: A va_list of arguments.
- * @modifier: A pointer to a potential width modifier.
- * @index: An index counter of the original format string.
- *
- * Return: If a width modifier is matched - its value.
- *         Otherwise - 0.
+ * struct flag_s - A new type defining a flags struct.
+ * @flag: A character representing a flag.
+ * @value: The integer value of the flag.
  */
-char handle_width(va_list args, const char *modifier, char *index)
+typedef struct flag_s
 {
-	char value = 0;
+	unsigned char flag;
+	unsigned char value;
+} flag_t;
 
-	while ((*modifier > '0' && *modifier <= '9') || (*modifier == '*'))
-	{
-		(*index)++;
+int _printf(const char *format, ...);
 
-		if (*modifier == '*')
-		{
-			value = va_arg(args, int);
-			if (value <= 0)
-				return (0);
-			return (value);
-		}
+/* Conversion Specifier Functions */
+unsigned int convert_c(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_s(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_di(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_percent(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_b(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_u(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_o(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_x(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_X(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_S(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_p(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_r(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
+unsigned int convert_R(va_list args, buffer_t *output,
+		unsigned char flags, char wid, char prec, unsigned char len);
 
-		value *= 10;
-		value += (*modifier - '0');
-		modifier++;
-	}
-
-	return (value);
-}
-
-/**
- * handle_precision - Matches a precision modifier with
- *                    its corresponding value.
- * @args: A va_list of arguments.
- * @modifier: A pointer to a potential precision modifier.
- * @index: An index counter of the original format string.
- *
- * Return: If a precision modifier is matched - its vaue.
- *         If the precision modifier is empty, zero, or negative - 0.
- *         Otherwise - -1.
- */
-char handle_precision(va_list args, const char *modifier, char *index)
-{
-	char value = 0;
-
-	if (*modifier != '.')
-		return (-1);
-
-	modifier++;
-	(*index)++;
-
-	if ((*modifier <= '0' || *modifier > '9') &&
-	     *modifier != '*')
-	{
-		if (*modifier == '0')
-			(*index)++;
-		return (0);
-	}
-
-	while ((*modifier > '0' && *modifier <= '9') ||
-	       (*modifier == '*'))
-	{
-		(*index)++;
-
-		if (*modifier == '*')
-		{
-			value = va_arg(args, int);
-			if (value <= 0)
-				return (0);
-			return (value);
-		}
-
-		value *= 10;
-		value += (*modifier - '0');
-		modifier++;
-	}
-
-	return (value);
-}
-
-/**
- * handle_specifiers - Matches a conversion specifier with
- *                     a corresponding conversion function.
- * @specifier: A pointer to a potential conversion specifier.
- *
- * Return: If a conversion function is matched - a pointer to the function.
- *         Otherwise - NULL.
- */
+/* Handlers */
+unsigned char handle_flags(const char *flags);
+unsigned char handle_length(const char *modifier);
+char handle_width(va_list args, const char *modifier, char *index);
+char handle_precision(va_list args, const char *modifier, char *index);
 unsigned int (*handle_specifiers(const char *specifier))(va_list, buffer_t *,\
-		unsigned char, char, char, unsigned char)
-{
-	int i;
-	converter_t converters[] = {
-		{'c', convert_c},
-		{'s', convert_s},
-		{'d', convert_di},
-		{'i', convert_di},
-		{'%', convert_percent},
-		{'b', convert_b},
-		{'u', convert_u},
-		{'o', convert_o},
-		{'x', convert_x},
-		{'X', convert_X},
-		{'S', convert_S},
-		{'p', convert_p},
-		{'r', convert_r},
-		{'R', convert_R},
-		{0, NULL}
-	};
+		unsigned char, char, char, unsigned char);
 
-	for (i = 0; converters[i].func; i++)
-	{
-		if (converters[i].specifier == *specifier)
-			return (converters[i].func);
-	}
+/* Helper Functions */
+buffer_t *init_buffer(void);
+void free_buffer(buffer_t *output);
+unsigned int _memcpy(buffer_t *output, const char *src, unsigned int n);
+unsigned int convert_sbase(buffer_t *output, long int num, char *base,
+		unsigned char flags, char wid, char prec);
+unsigned int convert_ubase(buffer_t *output, unsigned long int num, char *base,
+		unsigned char flags, char wid, char prec);
 
-	return (NULL);
-}
+#endif
